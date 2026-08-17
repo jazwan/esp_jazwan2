@@ -1,0 +1,228 @@
+-- =====================================================================
+-- Underground War 2.0 ESP - Dynamic Distance & Custom UI
+-- =====================================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local SafeGui = (gethui and gethui()) or game:GetService("CoreGui")
+if not SafeGui then SafeGui = LocalPlayer:WaitForChild("PlayerGui") end
+
+-- تم تثبيت الـ ESP ليعمل دائماً بدون الحاجة لزر تشغيل أو إغلاق
+getgenv().ESP_Enabled = true
+
+if SafeGui:FindFirstChild("JazwanESPGui") then SafeGui.JazwanESPGui:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "JazwanESPGui"
+ScreenGui.Parent = SafeGui
+ScreenGui.IgnoreGuiInset = true
+
+-- ==========================================
+-- 1. الشعار الجديد (مع الحواف المتحركة باللونين الأسود والأبيض)
+-- ==========================================
+local Watermark = Instance.new("Frame")
+Watermark.Name = "Watermark"
+Watermark.Parent = ScreenGui
+Watermark.Size = UDim2.new(0, 350, 0, 70)
+Watermark.Position = UDim2.new(0.5, -175, 0, 60) 
+Watermark.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Watermark.BackgroundTransparency = 0
+Watermark.BorderSizePixel = 0
+
+local WatermarkCorner = Instance.new("UICorner", Watermark)
+WatermarkCorner.CornerRadius = UDim.new(0, 8)
+
+local WatermarkStroke = Instance.new("UIStroke", Watermark)
+WatermarkStroke.Thickness = 3
+WatermarkStroke.Color = Color3.fromRGB(255, 255, 255)
+
+local WatermarkGradient = Instance.new("UIGradient", WatermarkStroke)
+WatermarkGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+}
+
+local WatermarkText = Instance.new("TextLabel", Watermark)
+WatermarkText.Size = UDim2.new(1, -10, 1, -10)
+WatermarkText.Position = UDim2.new(0.5, 0, 0.5, 0)
+WatermarkText.AnchorPoint = Vector2.new(0.5, 0.5)
+WatermarkText.BackgroundTransparency = 1
+WatermarkText.Text = "Welcome, Please do not use secondary scripts\nIf you have any questions, please feel free to ask the editor.\nTikTok: jazwan27"
+WatermarkText.TextColor3 = Color3.fromRGB(255, 255, 255)
+WatermarkText.Font = Enum.Font.GothamBold
+WatermarkText.TextSize = 12
+WatermarkText.TextWrapped = true
+
+-- إخفاء الشعار بعد 10 ثواني
+task.delay(10, function()
+    if Watermark then Watermark:Destroy() end
+end)
+
+-- ==========================================
+-- تأثير الحركة للشعار الجديد
+-- ==========================================
+task.spawn(function()
+    while true do
+        if not ScreenGui.Parent then break end 
+        WatermarkGradient.Rotation = (WatermarkGradient.Rotation + 3) % 360
+        task.wait(0.03)
+    end
+end)
+
+-- ==========================================
+-- 2. إشعار أقرب لاعب (مكانه فوق زر القفز مع شريط أسود وأبيض)
+-- ==========================================
+local NotifFrame = Instance.new("Frame")
+NotifFrame.Parent = ScreenGui
+NotifFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+NotifFrame.Position = UDim2.new(1, -185, 1, -80) 
+NotifFrame.Size = UDim2.new(0, 170, 0, 50)
+NotifFrame.Visible = false
+
+local NotifCorner = Instance.new("UICorner", NotifFrame)
+NotifCorner.CornerRadius = UDim.new(0, 8)
+
+local NotifStroke = Instance.new("UIStroke", NotifFrame)
+NotifStroke.Thickness = 2
+NotifStroke.Color = Color3.fromRGB(255, 255, 255)
+
+local NotifGradient = Instance.new("UIGradient", NotifStroke)
+NotifGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+}
+
+-- حركة الشريط الأسود والأبيض لإشعار أقرب لاعب أيضاً
+task.spawn(function()
+    while true do
+        if not ScreenGui.Parent then break end 
+        NotifGradient.Rotation = (NotifGradient.Rotation + 3) % 360
+        task.wait(0.03)
+    end
+end)
+
+local PlayerIcon = Instance.new("ImageLabel", NotifFrame)
+PlayerIcon.Size = UDim2.new(0, 35, 0, 35)
+PlayerIcon.Position = UDim2.new(0.05, 0, 0.15, 0)
+PlayerIcon.BackgroundTransparency = 1
+
+local NameText = Instance.new("TextLabel", NotifFrame)
+NameText.Size = UDim2.new(0, 110, 0, 15)
+NameText.Position = UDim2.new(0.35, 0, 0.15, 0)
+NameText.TextColor3 = Color3.new(1, 1, 1)
+NameText.Font = Enum.Font.GothamBold
+NameText.TextSize = 12
+NameText.Text = "Player"
+NameText.BackgroundTransparency = 1
+NameText.TextXAlignment = Enum.TextXAlignment.Left
+
+local SubText = Instance.new("TextLabel", NotifFrame)
+SubText.Size = UDim2.new(0, 110, 0, 15)
+SubText.Position = UDim2.new(0.35, 0, 0.5, 0)
+SubText.TextColor3 = Color3.fromRGB(180, 180, 180)
+SubText.Font = Enum.Font.Gotham
+SubText.TextSize = 9
+SubText.Text = "[فكرة يوسف] - [closest player]"
+SubText.BackgroundTransparency = 1
+SubText.TextXAlignment = Enum.TextXAlignment.Left
+
+-- ==========================================
+-- 3. نظام الـ ESP (مدمج لمنع الاختفاء + شفافية ديناميكية)
+-- ==========================================
+local ESP_Objects = {}
+
+local function createESP(player)
+    if player == LocalPlayer then return end
+    
+    -- الإضاءة للمسافات القريبة
+    local hl = Instance.new("Highlight")
+    hl.Name = player.Name .. "_HL"
+    hl.FillColor = Color3.fromRGB(255, 0, 0)
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop 
+    hl.Enabled = false
+    hl.Parent = SafeGui
+
+    -- الصندوق للمسافات البعيدة (لكي لا يختفي أبداً)
+    local box = Instance.new("BoxHandleAdornment")
+    box.Name = player.Name .. "_BOX"
+    box.Size = Vector3.new(4, 5.5, 2)
+    box.Color3 = Color3.fromRGB(255, 0, 0)
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Visible = false
+    box.Parent = SafeGui
+
+    ESP_Objects[player] = {Highlight = hl, Box = box}
+end
+
+for _, p in ipairs(Players:GetPlayers()) do createESP(p) end
+Players.PlayerAdded:Connect(createESP)
+Players.PlayerRemoving:Connect(function(p)
+    if ESP_Objects[p] then 
+        ESP_Objects[p].Highlight:Destroy()
+        ESP_Objects[p].Box:Destroy()
+        ESP_Objects[p] = nil 
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    local nearest, dist = nil, math.huge
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+    for player, obj in pairs(ESP_Objects) do
+        local isEnemy = true
+        if LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
+            isEnemy = false
+        end
+
+        if isEnemy and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local enemyRoot = player.Character.HumanoidRootPart
+            local d = 0
+            
+            if myRoot then
+                d = (myRoot.Position - enemyRoot.Position).Magnitude
+                if d < dist then 
+                    dist = d
+                    nearest = player 
+                end
+            end
+
+            -- حساب الشفافية: قريب = 0.2 (واضح جداً)، بعيد = 0.8 (عميق وخفيف)
+            local dynamicTransparency = math.clamp(d / 400, 0.2, 0.8)
+
+            if d < 150 then
+                -- إذا كان قريباً، نستخدم الـ Highlight للوضوح
+                obj.Highlight.Adornee = player.Character
+                obj.Highlight.FillTransparency = dynamicTransparency
+                obj.Highlight.Enabled = true
+                obj.Box.Visible = false
+            else
+                -- إذا كان بعيداً جداً، نستخدم الـ Box لكي لا يختفي بسبب المحرك
+                obj.Box.Adornee = enemyRoot
+                obj.Box.Transparency = dynamicTransparency
+                obj.Box.Visible = true
+                obj.Highlight.Enabled = false
+            end
+        else
+            obj.Highlight.Enabled = false
+            obj.Box.Visible = false
+        end
+    end
+
+    -- عرض إشعار أقرب لاعب
+    if nearest then
+        NotifFrame.Visible = true
+        NameText.Text = nearest.Name
+        pcall(function()
+            local content = Players:GetUserThumbnailAsync(nearest.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+            PlayerIcon.Image = content
+        end)
+    else
+        NotifFrame.Visible = false
+    end
+end)
