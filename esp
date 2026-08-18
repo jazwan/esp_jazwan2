@@ -4,12 +4,13 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 local SafeGui = (gethui and gethui()) or game:GetService("CoreGui")
 if not SafeGui then SafeGui = LocalPlayer:WaitForChild("PlayerGui") end
 
--- تم تثبيت الـ ESP ليعمل دائماً بدون الحاجة لزر تشغيل أو إغلاق
+-- حالة الـ ESP تبدأ كـ مشغلة تلقائياً
 getgenv().ESP_Enabled = true
 
 if SafeGui:FindFirstChild("JazwanESPGui") then SafeGui.JazwanESPGui:Destroy() end
@@ -62,13 +63,77 @@ task.delay(10, function()
 end)
 
 -- ==========================================
--- تأثير الحركة للشعار الجديد
+-- زر الـ ESP القابل للسحب (في الجهة اليسرى)
+-- ==========================================
+local EspToggleBtn = Instance.new("TextButton")
+EspToggleBtn.Size = UDim2.new(0, 80, 0, 45)
+EspToggleBtn.Position = UDim2.new(0, 20, 0.5, 0)
+EspToggleBtn.AnchorPoint = Vector2.new(0, 0.5)
+EspToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+EspToggleBtn.Text = "ESP: ON"
+EspToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 0) -- أخضر عند التشغيل
+EspToggleBtn.Font = Enum.Font.GothamBold
+EspToggleBtn.TextSize = 12
+EspToggleBtn.Parent = ScreenGui
+
+local BtnCorner = Instance.new("UICorner", EspToggleBtn)
+BtnCorner.CornerRadius = UDim.new(0, 6)
+
+local BtnStroke = Instance.new("UIStroke", EspToggleBtn)
+BtnStroke.Thickness = 2
+BtnStroke.Color = Color3.fromRGB(255, 255, 255)
+
+local BtnGradient = Instance.new("UIGradient", BtnStroke)
+BtnGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+}
+
+-- ==========================================
+-- تأثير الحركة للشعار وزر الـ ESP
 -- ==========================================
 task.spawn(function()
     while true do
         if not ScreenGui.Parent then break end 
         WatermarkGradient.Rotation = (WatermarkGradient.Rotation + 3) % 360
+        BtnGradient.Rotation = (BtnGradient.Rotation + 3) % 360
         task.wait(0.03)
+    end
+end)
+
+-- منطق تشغيل وإيقاف الـ ESP عبر الزر
+EspToggleBtn.MouseButton1Click:Connect(function()
+    getgenv().ESP_Enabled = not getgenv().ESP_Enabled
+    if getgenv().ESP_Enabled then
+        EspToggleBtn.Text = "ESP: ON"
+        EspToggleBtn.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        EspToggleBtn.Text = "ESP: OFF"
+        EspToggleBtn.TextColor3 = Color3.fromRGB(255, 0, 0)
+    end
+end)
+
+-- سحب زر الـ ESP
+local dragging, dragStart, startPos
+EspToggleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = EspToggleBtn.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging then
+        local delta = input.Position - dragStart
+        EspToggleBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
     end
 end)
 
@@ -96,7 +161,6 @@ NotifGradient.Color = ColorSequence.new{
     ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
 }
 
--- حركة الشريط الأسود والأبيض لإشعار أقرب لاعب أيضاً
 task.spawn(function()
     while true do
         if not ScreenGui.Parent then break end 
@@ -138,7 +202,6 @@ local ESP_Objects = {}
 local function createESP(player)
     if player == LocalPlayer then return end
     
-    -- الإضاءة للمسافات القريبة
     local hl = Instance.new("Highlight")
     hl.Name = player.Name .. "_HL"
     hl.FillColor = Color3.fromRGB(255, 0, 0)
@@ -147,7 +210,6 @@ local function createESP(player)
     hl.Enabled = false
     hl.Parent = SafeGui
 
-    -- الصندوق للمسافات البعيدة (لكي لا يختفي أبداً)
     local box = Instance.new("BoxHandleAdornment")
     box.Name = player.Name .. "_BOX"
     box.Size = Vector3.new(4, 5.5, 2)
@@ -175,47 +237,49 @@ RunService.RenderStepped:Connect(function()
     local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
     for player, obj in pairs(ESP_Objects) do
-        local isEnemy = true
-        if LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
-            isEnemy = false
-        end
-
-        if isEnemy and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            local enemyRoot = player.Character.HumanoidRootPart
-            local d = 0
-            
-            if myRoot then
-                d = (myRoot.Position - enemyRoot.Position).Magnitude
-                if d < dist then 
-                    dist = d
-                    nearest = player 
-                end
-            end
-
-            -- حساب الشفافية: قريب = 0.2 (واضح جداً)، بعيد = 0.8 (عميق وخفيف)
-            local dynamicTransparency = math.clamp(d / 400, 0.2, 0.8)
-
-            if d < 150 then
-                -- إذا كان قريباً، نستخدم الـ Highlight للوضوح
-                obj.Highlight.Adornee = player.Character
-                obj.Highlight.FillTransparency = dynamicTransparency
-                obj.Highlight.Enabled = true
-                obj.Box.Visible = false
-            else
-                -- إذا كان بعيداً جداً، نستخدم الـ Box لكي لا يختفي بسبب المحرك
-                obj.Box.Adornee = enemyRoot
-                obj.Box.Transparency = dynamicTransparency
-                obj.Box.Visible = true
-                obj.Highlight.Enabled = false
-            end
-        else
+        -- إذا تم إغلاق الـ ESP من الزر، نقوم بإخفاء الجميع
+        if not getgenv().ESP_Enabled then
             obj.Highlight.Enabled = false
             obj.Box.Visible = false
+        else
+            local isEnemy = true
+            if LocalPlayer.Team and player.Team and LocalPlayer.Team == player.Team then
+                isEnemy = false
+            end
+
+            if isEnemy and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                local enemyRoot = player.Character.HumanoidRootPart
+                local d = 0
+                
+                if myRoot then
+                    d = (myRoot.Position - enemyRoot.Position).Magnitude
+                    if d < dist then 
+                        dist = d
+                        nearest = player 
+                    end
+                end
+
+                local dynamicTransparency = math.clamp(d / 400, 0.2, 0.8)
+
+                if d < 150 then
+                    obj.Highlight.Adornee = player.Character
+                    obj.Highlight.FillTransparency = dynamicTransparency
+                    obj.Highlight.Enabled = true
+                    obj.Box.Visible = false
+                else
+                    obj.Box.Adornee = enemyRoot
+                    obj.Box.Transparency = dynamicTransparency
+                    obj.Box.Visible = true
+                    obj.Highlight.Enabled = false
+                end
+            else
+                obj.Highlight.Enabled = false
+                obj.Box.Visible = false
+            end
         end
     end
 
-    -- عرض إشعار أقرب لاعب
-    if nearest then
+    if getgenv().ESP_Enabled and nearest then
         NotifFrame.Visible = true
         NameText.Text = nearest.Name
         pcall(function()
@@ -226,3 +290,5 @@ RunService.RenderStepped:Connect(function()
         NotifFrame.Visible = false
     end
 end)
+
+--esp
